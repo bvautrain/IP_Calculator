@@ -1,0 +1,286 @@
+﻿Réseaux Avancés
+
+
+* Salle machine
+* 3h
+* Infrastructure GNS3
+
+
+* SPANNING-TREE
+* VLAN
+* VLSM
+* IPV6
+* ROUTING
+
+
+Guide de Configuration Réseau GNS3
+1. Préparation du réseau
+* Créez la topologie selon le schéma du projet. 
+* Vérifiez les connexions entre tous les équipements.
+(Sur un routeur ou switch, pour voir les voisins directs)
+show cdp neighbors
+
+
+2. Configuration de base des équipements
+   * Nommez les routeurs et postes selon le plan d’adressage.
+(Sur un routeur ou switch)
+R1(config)# hostname [NOM_DU_ROUTEUR]
+
+      * Configurez les adresses IPv4 et IPv6 sur les interfaces correspondantes.
+Sur un routeur :
+
+R1(config)# interface [type]/[num]
+R1(config-if)# ip address [X.X.X.X] [MASQUE]
+R1(config-if)# ipv6 address [ZZ:ZZ::ZZ]/[PREFIX]
+
+Sur un PC Ubuntu/Docker :
+
+root# ifconfig [interface] [ip] netmask [masque] up
+root# ifconfig [interface] inet6 add [ipv6]/[prefix]
+root# route add default gw [adresse_IP_passerelle] [interface]
+
+Sur un PC VPCS :
+VPCS> ip [ip] [masque] [gateway]
+VPCS> ipv6 [ip]/[prefix] [gateway]
+      * Activez toutes les interfaces nécessaires.
+(Sur un routeur ou switch, dans l'interface)
+R1(config-if)# no shutdown
+
+         * Testez la connectivité de base entre les équipements directement connectés.
+ping [IP_DU_VOISIN_DIRECT]
+
+
+3. Configuration des VLANs et Inter-VLAN
+Note : À utiliser pour les topologies avec des switchs et un routeur "Router-on-a-Stick".
+            * Créez les VLANs et assignez les ports (sur les switchs).
+ESW1(config)# vlan 10
+ESW1(config-vlan)# name [NOM_VLAN]
+ESW1(config-vlan)# exit
+ESW1(config)# interface [port_PC]
+ESW1(config-if)# switchport mode access
+ESW1(config-if)# switchport access vlan 10
+ESW1(config-if)# no shutdown
+
+               * Configurez les ports Trunk (liaisons entre switchs ou vers le routeur).
+ESW1(config)# interface [port_TRUNK]
+ESW1(config-if)# switchport mode trunk
+ESW1(config-if)# no shutdown
+
+                  * Configurez les passerelles Inter-VLAN (sur le routeur).
+R1(config)# interface [port_PHYSIQUE]
+R1(config-if)# no shutdown
+R1(config)# interface [port_PHYSIQUE].XX
+R1(config-if)# encapsulation dot1q XX
+R1(config-if)# ip address [GATEWAY_VLAN_XX] [MASQUE]
+
+
+4. Mise en place du routage statique standard
+                     * Configurez les routes statiques IPv4 et IPv6 pour permettre la communication entre tous les réseaux.
+Activation globale IPv6 (sur tous les routeurs, une seule fois) :
+R1(config)# ipv6 unicast-routing
+Configuration des routes (sur routeurs, pour chaque réseau distant) :
+R1(config)# ip route [RÉSEAU_DEST] [MASQUE_DEST] [IP_DU_PROCHAIN_SAUT]
+R1(config)# ipv6 route [RÉSEAU_DEST_IPV6]/[PREFIX] [IP_DU_PROCHAIN_SAUT_IPV6]
+Configuration de la passerelle (sur les PC) :
+root# ip route add default via [gateway]
+root# ip -6 route add default via [gateway]
+                     * Vérifiez la connectivité entre les réseaux distants.
+ping [IP_D_UN_RÉSEAU_DISTANT]
+
+
+5. Ajout d’une route flottante (de secours)
+                        * Configurez une route de secours avec une priorité inférieure (distance administrative plus élevée).
+(Sur un routeur, [AD] est la distance, ex: 10. L'AD par défaut est 1)
+R1(config)# ip route [RÉSEAU_DEST] [MASQUE_DEST] [IP_NEXT_HOP_SECOURS] [AD]
+R1(config)# ipv6 route [RÉSEAU_DEST_IPV6]/[PREFIX] [IP_NEXT_HOP_SECOURS] [AD]
+
+                           * Testez le fonctionnement de la route de secours en simulant une panne de lien principal.
+Simulation de la panne :
+R1(config)# interface [type]/[num_LIEN_PRINCIPAL]
+R1(config-if)# shutdown
+Vérification que la route de secours est active :
+show ip route
+Test du ping, qui doit toujours passer :
+ping [IP_D_UN_RÉSEAU_DISTANT]
+Pour réactiver le lien :
+R1(config-if)# no shutdown
+
+
+6. Configuration Spanning Tree (STP)
+Note : Pour les topologies de switchs avec des liens redondants.
+                           * Définir le switch central comme Root Bridge (le "chef").
+(Sur le switch qui doit être le "Root", ex: ESW2)
+ESW2(config)# spanning-tree vlan [LISTE_VLANs] root primary
+! (Alternative manuelle avec priorité plus basse)
+ESW2(config)# spanning-tree vlan [LISTE_VLANs] priority 4096
+
+                              * Optimiser les ports d'accès (vers les PC).
+(Sur les interfaces connectées aux PC pour une activation rapide et sécurisée)
+ESW1(config)# interface [port_PC]
+ESW1(config-if)# spanning-tree portfast
+
+                                 * Vérifier le Spanning Tree.
+(Sur n'importe quel switch)
+show spanning-tree vlan [NUM_VLAN]
+
+
+(Vérifiez "This bridge is the root" sur le Root Bridge, et l'état "FWD" (Forwarding) ou "BLK" (Blocking) des ports sur les autres switchs)
+7. Vérification et sauvegarde
+                                    * Vérifiez la table de routage IPv4 et IPv6 pour confirmer la bonne prise en compte des routes.
+show ip route
+show ipv6 route
+show ip route static
+
+                                       * Testez la connectivité globale du réseau.
+ping [IP_DISTANTE]
+traceroute [IP_DISTANTE]
+
+                                          * Sauvegardez la configuration finale de chaque équipement.
+R1# write memory
+
+
+
+
+7
+	Application
+	Data
+	http
+	6
+	Presentation
+	Data
+	html
+	5
+	Session
+	Data
+	opera
+	4
+	Transport
+	Segment/
+Datagram
+	TCP / UDP
+	3
+	Network
+	Packet
+	
+
+	2
+	Data Link
+	Trame
+	
+
+	1
+	Physique
+	Bit
+	
+
+	
+
+
+
+192.168.40.0/24
+
+
+On veut 3 sous-réseaux. 
+
+
+NSR = 3 <= 22 = 4 
+
+
+On prend la puissance nécessaire et on l’ajoute au masque de sous-réseau. 
+MSRP = /24 + 2 = /26 => 255.255.255.192
+
+
+Pour calculer le pas : T = 256 - 192 = 64
+
+
+Diff = diffusion = broadcast
+
+
+MG (masque générique) = 255.255.255.255 - 255.255.255.192 = 0.0.0.63
+
+
+ID1 : 192.168.40.0/26         IP1 : 192.168.40.1
+                                IPfin : IPdiff - 1
+                                IPdiff : ID1 + MG
+
+
+ID2 : IPdiff + 1
+ID2 : 192.168.40.64/26
+…
+
+
+NB d’hôtes = 232-masque = 32 - 26 = 6 - 2 = 62 
+
+
+
+
+
+
+Configuration : 
+
+
+VLAN : 
+
+
+Sur le switch :
+                                             * conf t
+                                             * vlan xx
+                                             * name yyy
+                                             * interface x/x
+                                             * sw m a (ou sw m t)
+                                             * sw a vlan xx (ou sw nonegotiate)
+                                             * no sh 
+                                             * spanning-tree vlan xx root primary (conf t)
+                                             * spanning-tree portfast (interface vers le pc)
+
+
+Sur le routeur : 
+                                             * conf t
+                                             * int fx/x.yy
+                                             * encapsulation dot1q yy
+                                             * ip add X.X.X.Y/M (avec M masque et Y adresse de la GW)
+                                             * ip routing (si switch de couche 3, int f0/x = interface de routeur)
+
+
+CONFIGURATION RÉSEAU : 
+
+
+Sur le routeur : 
+                                             * conf t
+                                             * interface x/x
+                                             * ip add X.X.X.X MASQUE GATEWAY
+                                             * ipv6 add ZZ:ZZ:ZZ::ZZ
+                                             * no sh
+
+
+Sur le PC : 
+                                             * ifconfig [interface] [ip] netmask [masque] up
+                                             * ifconfig [interface] inet6 add(ou replace) [ipv6/masque]
+
+
+ROUTAGE STATIQUE : (Plus AD est bas, plus la route est prioritaire)
+
+
+Sur le routeur : 
+                                             * ipv6 unicast-routing
+                                             * ip route [Réseau où on veut aller] [Masque de sous-réseau] [Interface de sortie OU/ET IP intermédiaire] [optionnel : priorité AD]
+                                             * ip route DEST MASK Chemin que notre routeur connaît
+                                             * ipv6 route DEST MASK Chemin
+                                             * À faire pour relier tous les réseaux et toutes les VLANs
+                                             * Configurer aussi routes de secours
+
+
+Sur le PC : 
+                                             * ip route add default via [gateway]
+                                             * ip -6 route add default via [gateway]
+
+
+COMMANDES UTILES : 
+
+
+                                             * show ipv6 neighbors
+                                             * show interface
+                                             * show hist
+                                             * show ip route
+                                             * show spanning-tree vlan xx
+                                             * wr mem
