@@ -1,0 +1,19 @@
+1. configuration des switchs
+-> hostname SW1
+->nommé la vlans : vlan 10 : name VLAN10 ou autre
+->mise en place des vlan sur interfaces : acces, trunk. Ne pas oublier de sw m t et sw t encapsulation dot1q
+
+2. configurations des pc :
+Pour VPCS -> ip xx.xx.xx.xx 255.255.255.x xx.xx.xx.1
+Pour docker -> ifconfig (cf cmds)
+-> Ping les mêmes PC qui sont sur les même vlans + Test le routage si sur même gateway
+
+3. configuratuon des routerurs :
+Iterfaces fx/x.N°VLAN en trunk : encapsulation dot1q [N°VLAN]
+	-> définir IP de la paserelle
+-> Test de ping sur paserelle depuis PC.
+
+4. routage des vlans :
+ip route [dest] [mask] [prochain routeur]
+
+FAIRE shut et no shut si marche pas 
